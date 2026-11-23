@@ -10,8 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: unzip -o "$(ls *.zip | head -1)"
+      - name: Find the project
+        run: |
+          if ls *.zip >/dev/null 2>&1; then unzip -o "$(ls *.zip | head -1)"; fi
+          FILE=$(find . -name settings.gradle -not -path "./.git/*" | head -1)
+          if [ -z "$FILE" ]; then
+            echo "Could not find settings.gradle. Files in the repository:"
+            ls -la
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$FILE")" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
         with:
@@ -25,10 +33,9 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
-        working-directory: CATPrepApp
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: cd "$PROJECT_DIR" && gradle assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
           name: CAT-Prep-APK
-          path: CATPrepApp/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
